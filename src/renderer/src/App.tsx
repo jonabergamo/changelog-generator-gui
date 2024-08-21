@@ -1,3 +1,6 @@
+import { Button } from '@renderer/components/ui/button'
+import { Card, CardFooter, CardHeader, CardTitle } from '@renderer/components/ui/card'
+
 function App(): JSX.Element {
   const ipcHandle = async (): Promise<void> => {
     const result = await window.electron.ipcRenderer.invoke('select-folder-and-generate-changelog')
@@ -12,11 +15,14 @@ function App(): JSX.Element {
   }
 
   return (
-    <div>
-      <button className="text-red-500" onClick={ipcHandle}>
-        Selecionar Pasta e Gerar Changelog
-      </button>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Teste</CardTitle>
+      </CardHeader>
+      <CardFooter>
+        <Button onClick={ipcHandle}>Selecionar Pasta e Gerar Changelog</Button>
+      </CardFooter>
+    </Card>
   )
 }
 
