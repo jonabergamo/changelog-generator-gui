@@ -1,8 +1,32 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { exec } from 'child_process'
+import sqlite3 from 'sqlite3'
+
+interface UserPreferences {
+  theme: string
+}
+
+interface UserProject {
+  name: string
+  localPath: string
+  changelogName: string
+}
+
+// Criação do banco de dados
+const db = new sqlite3.Database('./database.db')
+
+db.serialize(() => {
+  // Criação das tabelas com id auto-incremental
+  db.run(
+    'CREATE TABLE IF NOT EXISTS user_preferences (id INTEGER PRIMARY KEY AUTOINCREMENT, theme TEXT)'
+  )
+  db.run(
+    'CREATE TABLE IF NOT EXISTS user_projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, localPath TEXT, changelogName TEXT)'
+  )
+})
 
 function createWindow(): void {
   // Create the browser window.
@@ -10,13 +34,18 @@ function createWindow(): void {
     width: 900,
     height: 670,
     show: false,
+    frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      nodeIntegration: true,
+      contextIsolation: false
     }
   })
+
+  mainWindow.maximize()
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -25,6 +54,22 @@ function createWindow(): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  ipcMain.on('app:minimize', () => {
+    mainWindow.minimize()
+  })
+
+  ipcMain.on('app:maximize', () => {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow.maximize()
+    }
+  })
+
+  ipcMain.on('app:close', () => {
+    app.quit()
   })
 
   // HMR for renderer base on electron-vite cli.
@@ -91,17 +136,24 @@ ipcMain.on('generate-changelog', (_, args) => {
   })
 })
 
-ipcMain.handle('select-folder-and-generate-changelog', async () => {
+ipcMain.handle('select-folder', async () => {
   // Abre o seletor de pastas
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory']
   })
 
+  // Verifica se a seleção foi cancelada ou se não há pastas selecionadas
   if (result.canceled || result.filePaths.length === 0) {
     return { canceled: true }
   }
 
   const selectedPath = result.filePaths[0]
+  const folderName = path.basename(selectedPath)
+
+  return { success: true, folderName, selectedPath }
+})
+
+ipcMain.handle('generate-changelog', async (_, selectedPath) => {
   const command = 'conventional-changelog -p angular -i CHANGELOG.md -s -r 0'
 
   try {
@@ -127,4 +179,52 @@ ipcMain.handle('select-folder-and-generate-changelog', async () => {
       return { success: false, error: 'An unknown error occurred' }
     }
   }
+})
+// Manipulação de preferências do usuário
+ipcMain.handle('get-preferences', async () => {
+  return new Promise<UserPreferences | null>((resolve, reject) => {
+    db.all('SELECT theme FROM user_preferences LIMIT 1', [], (err, rows: UserPreferences[]) => {
+      if (err) {
+        reject(err)
+      }
+
+      if (rows) {
+        // Se não houver dados, retornar null
+        const theme = rows.length > 0 ? rows[0]?.theme : 'system'
+        resolve({ theme })
+      }
+    })
+  })
+})
+
+ipcMain.handle('set-preferences', (_, theme: string) => {
+  const stmt = db.prepare('REPLACE INTO user_preferences (id, theme) VALUES (1, ?)')
+  stmt.run(theme)
+  stmt.finalize()
+})
+
+// Manipulação de projetos do usuário
+ipcMain.handle('get-projects', async () => {
+  return new Promise<UserProject[]>((resolve, reject) => {
+    db.all('SELECT * FROM user_projects', [], (err, rows) => {
+      if (err) {
+        reject(err)
+      }
+      // Mapeia as linhas para UserProject
+      const projects: UserProject[] = rows.map((row: any) => ({
+        name: row.name,
+        localPath: row.localPath,
+        changelogName: row.changelogName
+      }))
+      resolve(projects)
+    })
+  })
+})
+
+ipcMain.handle('set-projects', (_, project: UserProject) => {
+  const stmt = db.prepare(
+    'INSERT INTO user_projects (name, localPath, changelogName) VALUES (?, ?, ?)'
+  )
+  stmt.run(project.name, project.localPath, project.changelogName)
+  stmt.finalize()
 })
