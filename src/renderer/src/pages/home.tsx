@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Label } from '../components/ui/label'
 import toast from 'react-hot-toast'
 import { useTheme } from 'next-themes'
+import { motion } from 'framer-motion'
 
 interface UserProject {
   name: string
@@ -70,20 +71,20 @@ export function Home() {
     }
   }
   return (
-    <Card>
-      <CardFooter>
+    <Card className="h-full">
+      <CardFooter className="flex flex-col gap-4 items-start p-5 ">
         <Button onClick={ipcHandle}>Selecionar Pasta e Gerar Changelog</Button>
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-2">
           {data.length === 0 ? (
             <Label>Nenhum dado inserido.</Label>
           ) : (
             data.map((item, index) => (
-              <Card key={index}>
-                <CardContent className="flex flex-col gap-2">
-                  <Label>{item.name}</Label>
+              <motion.div initial={{ x: 0 }} whileHover={{ x: 30 }}>
+                <Card key={index} className="p-5 flex flex-col gap-2">
+                  <Label className="text-xl">{item.name}</Label>
                   <Label className="text-muted-foreground text-sm">{item.localPath}</Label>
-                </CardContent>
-              </Card>
+                </Card>
+              </motion.div>
             ))
           )}
         </div>
