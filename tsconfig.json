@@ -1,4 +1,6 @@
 {
-  "files": [],
+  "files": [
+    "src/renderer/src/types/index.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.web.json" }]
 }

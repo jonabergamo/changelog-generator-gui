@@ -15,6 +15,20 @@ interface UserProject {
   changelogName: string
 }
 
+export type ReleaseOptions = {
+  firstRelease?: boolean
+  prerelease?: 'alpha' | 'beta' // Ex: 'alpha', 'beta', etc.
+  noVerify?: boolean
+  skipChangelog?: boolean
+  // Adicione mais opções conforme necessário
+}
+
+export type RunReleaseScriptParams = {
+  newVersionType: 'major' | 'minor' | 'path' | string // Ex: 'major', 'minor', 'patch', ou uma versão específica '1.2.3'
+  workingDirectory: string // Caminho para o diretório de trabalho
+  options?: ReleaseOptions // Opções adicionais
+}
+
 // Criação do banco de dados
 const db = new sqlite3.Database('./database.db')
 
@@ -262,7 +276,7 @@ ipcMain.on('generate-changelog', (_, args) => {
   const projectPath = args.path
 
   // Comando para gerar o changelog
-  const command = 'conventional-changelog -p conventionalcommits -i CHANGELOG.md -s -r 1'
+  const command = 'npx standard-version --first-release'
 
   // Navegar até o diretório do projeto e executar o comando
   exec(command, { cwd: projectPath }, (error, stdout, stderr) => {
@@ -280,16 +294,34 @@ ipcMain.on('generate-changelog', (_, args) => {
 
 ipcMain.handle(
   'run-release-script',
-  async (_, { newVersionType, developBranch, mainBranch, prefix, workingDirectory }) => {
+  async (_, { newVersionType, workingDirectory, options }: RunReleaseScriptParams) => {
     const scriptPath = path.join(__dirname, './release.ps1') // Caminho para o script
 
-    const command = `npx standard-version --release-as ${newVersionType}`
+    // Montar o comando dinamicamente com base nas opções fornecidas
+    let command = `npx standard-version --release-as ${newVersionType}`
+
+    // Adicionar opções extras ao comando se existirem
+    if (options) {
+      if (options.firstRelease) {
+        command += ' --first-release'
+      }
+      if (options.prerelease) {
+        command += ` --prerelease ${options.prerelease}`
+      }
+      if (options.noVerify) {
+        command += ' --no-verify'
+      }
+      if (options.skipChangelog) {
+        command += ' --skip.changelog'
+      }
+      // Adicione mais opções conforme necessário
+    }
 
     // Usar spawn para executar o comando em um terminal interativo
     const child = spawn(command, {
       shell: true,
       cwd: workingDirectory,
-      stdio: 'overlapped' // Permitir que a saída seja exibida no terminal
+      stdio: 'inherit' // Permitir que a saída seja exibida no terminal
     })
 
     child.on('error', (error) => {

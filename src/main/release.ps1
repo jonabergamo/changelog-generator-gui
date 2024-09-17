@@ -93,3 +93,4 @@ git branch -d $ReleaseBranch
 git push origin --delete $ReleaseBranch
 
 Write-Host "Fluxo de release completo com sucesso!" -ForegroundColor Green
+exit 0
