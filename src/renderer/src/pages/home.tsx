@@ -14,7 +14,7 @@ interface UserProject {
 
 export function Home() {
   const [data, setData] = useState<UserProject[]>([])
-
+  const { setTheme } = useTheme()
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -70,6 +70,24 @@ export function Home() {
       toast.error('Não foi possivel adicionar o projeto.')
     }
   }
+
+  const handleAddNewVersion = async (localPath: string) => {
+    await toast.promise(
+      window.electron.ipcRenderer.invoke('run-release-script', {
+        newVersionType: 'minor',
+        developBranch: 'develop',
+        mainBranch: 'master',
+        prefix: 'release/',
+        workingDirectory: localPath
+      }),
+      {
+        loading: 'Adicionando nova versão...',
+        success: 'Nova versão adicionada',
+        error: 'Erro ao adicionar nova versão'
+      }
+    )
+  }
+
   return (
     <Card className="h-full">
       <CardFooter className="flex flex-col gap-4 items-start p-5 ">
@@ -79,10 +97,15 @@ export function Home() {
             <Label>Nenhum dado inserido.</Label>
           ) : (
             data.map((item, index) => (
-              <motion.div initial={{ x: 0 }} whileHover={{ x: 30 }}>
-                <Card key={index} className="p-5 flex flex-col gap-2">
+              <motion.div key={index} initial={{ x: 0 }}>
+                <Card className="p-5 flex flex-col gap-2">
                   <Label className="text-xl">{item.name}</Label>
                   <Label className="text-muted-foreground text-sm">{item.localPath}</Label>
+                  <CardFooter>
+                    <Button onClick={() => handleAddNewVersion(item.localPath)}>
+                      Adicionar nova versão
+                    </Button>
+                  </CardFooter>
                 </Card>
               </motion.div>
             ))
