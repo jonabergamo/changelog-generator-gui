@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import sqlite3 from 'sqlite3'
 
 interface UserPreferences {
@@ -258,98 +258,51 @@ ipcMain.handle('add-new-version', async (_, selectedPath) => {
   }
 })
 
+ipcMain.on('generate-changelog', (_, args) => {
+  const projectPath = args.path
+
+  // Comando para gerar o changelog
+  const command = 'conventional-changelog -p conventionalcommits -i CHANGELOG.md -s -r 1'
+
+  // Navegar até o diretório do projeto e executar o comando
+  exec(command, { cwd: projectPath }, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Erro ao executar o comando: ${error.message}`)
+      return
+    }
+    if (stderr) {
+      console.error(`Erro no comando: ${stderr}`)
+      return
+    }
+    console.log(`Saída do comando:\n${stdout}`)
+  })
+})
+
 ipcMain.handle(
   'run-release-script',
   async (_, { newVersionType, developBranch, mainBranch, prefix, workingDirectory }) => {
     const scriptPath = path.join(__dirname, './release.ps1') // Caminho para o script
 
-    const command = `
-      param (
-        [string]$NewVersionType = "${newVersionType}",
-        [string]$DevelopBranch = "${developBranch}",
-        [string]$MainBranch = "${mainBranch}",
-        [string]$Prefix = "${prefix}",
-        [string]$WorkingDirectory = "${workingDirectory}"
-      )
+    const command = `npx standard-version --release-as ${newVersionType}`
 
-      # 1. Verificar se existem mudanças não comitadas
-      $status = git status --porcelain
-      if ($status) {
-        Write-Host "Erro: Existem mudanças não comitadas. Commite ou stashe suas mudanças antes de continuar." -ForegroundColor Red
-        exit 1
-      }
+    // Usar spawn para executar o comando em um terminal interativo
+    const child = spawn(command, {
+      shell: true,
+      cwd: workingDirectory,
+      stdio: 'overlapped' // Permitir que a saída seja exibida no terminal
+    })
 
-      # 2. Instalar 'standard-version' globalmente se não estiver instalado
-      Write-Host "Verificando se 'standard-version' está instalado globalmente..." -ForegroundColor Green
-      if (-not (Get-Command standard-version -ErrorAction SilentlyContinue)) {
-        Write-Host "'standard-version' não encontrado, instalando globalmente..." -ForegroundColor Yellow
-        npm install -g standard-version
-      }
+    child.on('error', (error) => {
+      console.error(`Erro ao executar o comando: ${error.message}`)
+    })
 
-      # 3. Mudança para o diretório de trabalho
-      Write-Host "Mudando para o diretório de trabalho '$WorkingDirectory'..."
-      Set-Location '$WorkingDirectory'
-
-      # 4. Checkout na branch de desenvolvimento e atualizá-la
-      Write-Host "Fazendo checkout na branch '$DevelopBranch' e atualizando-a..." -ForegroundColor Green
-      git checkout '$DevelopBranch'
-      git pull origin '$DevelopBranch'
-
-      # 5. Criar uma nova versão
-      Write-Host "Criando nova versão usando 'standard-version'..." -ForegroundColor Green
-      npx standard-version --release-as '$NewVersionType'
-
-      # 6. Capturar a nova versão gerada
-      $NewVersion = git describe --tags --abbrev=0
-      $ReleaseBranch = "$Prefix$NewVersion"
-
-      # 7. Criar a nova branch de release
-      Write-Host "Criando a branch de release '$ReleaseBranch'..." -ForegroundColor Green
-      git checkout -b '$ReleaseBranch'
-
-      # 8. Commit e Push da nova branch de release
-      Write-Host "Fazendo commit e push da nova branch de release..." -ForegroundColor Green
-      git add .
-      git commit -m "chore(release): $NewVersion"
-      git push origin '$ReleaseBranch'
-
-      # 9. Merge da branch de release de volta para '$DevelopBranch'
-      Write-Host "Merge da branch de release '$ReleaseBranch' para '$DevelopBranch'..." -ForegroundColor Green
-      git checkout '$DevelopBranch'
-      git merge --no-ff '$ReleaseBranch'
-
-      # 10. Push das mudanças na '$DevelopBranch'
-      Write-Host "Fazendo push das mudanças na branch '$DevelopBranch'..." -ForegroundColor Green
-      git push origin '$DevelopBranch'
-
-      # 11. Limpeza da branch de release (opcional)
-      Write-Host "Deletando a branch de release '$ReleaseBranch'..." -ForegroundColor Green
-      git branch -d '$ReleaseBranch'
-      git push origin --delete '$ReleaseBranch'
-
-      Write-Host "Fluxo de release completo com sucesso!" -ForegroundColor Green
-    `
-
-    try {
-      const output = await new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
-          if (error) {
-            reject(error)
-          } else if (stderr) {
-            reject(new Error(stderr))
-          } else {
-            resolve(stdout)
-          }
-        })
-      })
-
-      return { success: true, output }
-    } catch (error) {
-      if (error instanceof Error) {
-        return { success: false, error: error.message }
+    child.on('exit', (code) => {
+      console.log(`Comando executado com código de saída: ${code}`)
+      if (code !== 0) {
+        console.error('Erro ao executar o standard-version.')
       } else {
-        return { success: false, error: 'An unknown error occurred' }
+        console.log('Versão criada com sucesso!')
       }
-    }
+    })
   }
 )
