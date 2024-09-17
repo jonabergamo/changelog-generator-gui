@@ -1,7 +1,6 @@
 param (
     [string]$NewVersionType = "minor",   # Tipo de versão: major, minor, patch
     [string]$DevelopBranch = "develop",  # Nome da branch de desenvolvimento
-    [string]$MainBranch = "master",      # Nome da branch principal
     [string]$Prefix = "release/",        # Prefixo para a branch de release
     [string]$WorkingDirectory            # Caminho do diretório onde o script será executado
 )
@@ -33,34 +32,62 @@ Write-Host "Fazendo checkout na branch '$DevelopBranch' e atualizando-a..." -For
 git checkout $DevelopBranch
 git pull origin $DevelopBranch
 
-# 3. Criar uma nova branch de release com a nova versão
+# 3. Verificar a branch principal automaticamente
+function GetMainBranch {
+    # Puxar todas as branches remotas
+    $branches = git branch -r | ForEach-Object { $_.Trim() }
+    $mainBranch = $null
+
+    foreach ($branch in $branches) {
+        if ($branch -like "*origin/main*") {
+            $mainBranch = "main"
+            break
+        } elseif ($branch -like "*origin/master*") {
+            $mainBranch = "master"
+            break
+        }
+    }
+
+    if (-not $mainBranch) {
+        Write-Host "Erro: Nenhuma branch principal encontrada (main ou master)." -ForegroundColor Red
+        exit 1
+    }
+
+    return $mainBranch
+}
+
+# 4. Captura a branch principal
+$MainBranch = GetMainBranch
+Write-Host "Branch principal encontrada: '$MainBranch'" -ForegroundColor Green
+
+# 5. Criar uma nova branch de release com a nova versão
 Write-Host "Criando nova versão usando 'standard-version'..." -ForegroundColor Green
 npx standard-version --release-as $NewVersionType
 
-# 4. Capturar a nova versão gerada
+# 6. Capturar a nova versão gerada
 $NewVersion = git describe --tags --abbrev=0
 $ReleaseBranch = "$Prefix$NewVersion"
 
-# 5. Criar a nova branch de release
+# 7. Criar a nova branch de release
 Write-Host "Criando a branch de release '$ReleaseBranch'..." -ForegroundColor Green
 git checkout -b $ReleaseBranch
 
-# 6. Commit e Push da nova branch de release
+# 8. Commit e Push da nova branch de release
 Write-Host "Fazendo commit e push da nova branch de release..." -ForegroundColor Green
 git add .
 git commit -m "chore(release): $NewVersion"
 git push origin $ReleaseBranch
 
-# 7. Merge a branch de release de volta para develop
-Write-Host "Merge da branch de release '$ReleaseBranch' para '$DevelopBranch'..." -ForegroundColor Green
-git checkout $DevelopBranch
+# 9. Merge a branch de release de volta para a branch principal
+Write-Host "Merge da branch de release '$ReleaseBranch' para '$MainBranch'..." -ForegroundColor Green
+git checkout $MainBranch
 git merge --no-ff $ReleaseBranch
 
-# 8. Push das mudanças na develop
-Write-Host "Fazendo push das mudanças na branch '$DevelopBranch'..." -ForegroundColor Green
-git push origin $DevelopBranch
+# 10. Push das mudanças na branch principal
+Write-Host "Fazendo push das mudanças na branch '$MainBranch'..." -ForegroundColor Green
+git push origin $MainBranch
 
-# 9. Limpeza da branch de release (opcional)
+# 11. Limpeza da branch de release (opcional)
 Write-Host "Deletando a branch de release '$ReleaseBranch'..." -ForegroundColor Green
 git branch -d $ReleaseBranch
 git push origin --delete $ReleaseBranch

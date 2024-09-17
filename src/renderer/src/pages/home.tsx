@@ -61,11 +61,20 @@ export function Home() {
       // Chama a função para salvar no banco de dados
       await window.electron.ipcRenderer.invoke('set-projects', newProject)
 
-      await toast.promise(window.electron.ipcRenderer.invoke('generate-changelog', folderPath), {
-        loading: 'Gerando changelog...',
-        success: <b>Changelog gerado com sucesso!</b>,
-        error: <b>Não foi possível um changelog para o projeto.</b>
-      })
+      await toast.promise(
+        window.electron.ipcRenderer.invoke('run-release-script', {
+          newVersionType: 'minor',
+          developBranch: 'develop',
+          mainBranch: 'master',
+          prefix: 'release/',
+          workingDirectory: folderPath
+        }),
+        {
+          loading: 'Gerando changelog...',
+          success: <b>Changelog gerado com sucesso!</b>,
+          error: <b>Não foi possível um changelog para o projeto.</b>
+        }
+      )
     } catch (error) {
       toast.error('Não foi possivel adicionar o projeto.')
     }
@@ -76,7 +85,7 @@ export function Home() {
       window.electron.ipcRenderer.invoke('run-release-script', {
         newVersionType: 'minor',
         developBranch: 'develop',
-        mainBranch: 'master',
+        mainBranch: 'main',
         prefix: 'release/',
         workingDirectory: localPath
       }),
