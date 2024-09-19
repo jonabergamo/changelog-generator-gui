@@ -1,6 +1,6 @@
 export type ReleaseOptions = {
   firstRelease?: boolean;
-  prerelease?: 'alpha' | 'beta' | boolean; // Ex: 'alpha', 'beta', etc.
+  prerelease?: string; // Ex: 'alpha', 'beta', etc.
   noVerify?: boolean;
   skipChangelog?: boolean;
   // Adicione mais opções conforme necessário
