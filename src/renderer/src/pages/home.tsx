@@ -33,11 +33,13 @@ export function Home() {
     workingDirectory: '',
     options: {
       firstRelease: false,
-      prerelease: false,
+      prerelease: '',
       noVerify: true,
       skipChangelog: false,
     },
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogVersion, setDialogVersion] = useState('');
   const { setTheme } = useTheme();
   useEffect(() => {
     const loadData = async () => {
@@ -85,21 +87,6 @@ export function Home() {
 
       // Chama a função para salvar no banco de dados
       await window.electron.ipcRenderer.invoke('set-projects', newProject);
-
-      await toast.promise(
-        window.electron.ipcRenderer.invoke('run-release-script', {
-          newVersionType: 'minor',
-          developBranch: 'develop',
-          mainBranch: 'master',
-          prefix: 'release/',
-          workingDirectory: folderPath,
-        }),
-        {
-          loading: 'Gerando changelog...',
-          success: <b>Changelog gerado com sucesso!</b>,
-          error: <b>Não foi possível um changelog para o projeto.</b>,
-        },
-      );
     } catch (error) {
       toast.error('Não foi possivel adicionar o projeto.');
     }
@@ -116,6 +103,43 @@ export function Home() {
     );
   };
 
+  const calculateNewVersion = (currentVersion: string) => {
+    const versionParts = currentVersion.split('-');
+
+    let [major, minor, patch] = versionParts[0].split('.').map(Number);
+
+    // Verificando o tipo de versão selecionado e ajustando a nova versão
+    if (parameters.newVersionType === 'major') {
+      major += 1;
+      minor = 0;
+      patch = 0;
+    } else if (parameters.newVersionType === 'minor') {
+      minor += 1;
+      patch = 0;
+    } else if (parameters.newVersionType === 'patch') {
+      patch += 1;
+    } else if (
+      parameters.newVersionType !== 'major' &&
+      parameters.newVersionType !== 'minor' &&
+      parameters.newVersionType !== 'patch'
+    ) {
+      if (parameters?.options?.prerelease) {
+        return parameters.newVersionType + `-${parameters.options.prerelease}`;
+      }
+      return parameters.newVersionType;
+    }
+
+    // Montando a nova versão
+    let newVersion = `${major}.${minor}.${patch}`;
+
+    // Se houver pré-release, adiciona ao final
+    if (parameters?.options?.prerelease) {
+      return newVersion + `-${parameters.options.prerelease}`;
+    }
+
+    return newVersion;
+  };
+
   return (
     <Card className="h-full">
       <CardFooter className="flex flex-col gap-4 items-start p-5 ">
@@ -124,15 +148,46 @@ export function Home() {
           {data.length === 0 ? (
             <Label>Nenhum dado inserido.</Label>
           ) : (
-            data.map((item, index) => (
-              <motion.div key={index} initial={{ x: 0 }}>
+            data.map((item) => (
+              <motion.div key={item.localPath} initial={{ x: 0 }}>
                 <Card className="p-5 flex flex-col gap-2">
                   <Label className="text-xl">{item.name}</Label>
                   <Label className="text-muted-foreground text-sm">
                     {item.localPath}
                   </Label>
                   <CardFooter>
-                    <Dialog>
+                    <Dialog
+                      open={dialogOpen}
+                      onOpenChange={async (open) => {
+                        if (open) {
+                          const version =
+                            await window.electron.ipcRenderer.invoke(
+                              'get-project-version',
+                              item.localPath,
+                            );
+                          if (version.success) {
+                            setDialogVersion(version);
+                          } else {
+                            setDialogVersion('1.1.0');
+                          }
+                          console.log(version);
+                          setDialogOpen(true);
+                        } else {
+                          setDialogOpen(false);
+                          setDialogVersion('');
+                          setParameters({
+                            newVersionType: 'major',
+                            workingDirectory: '',
+                            options: {
+                              firstRelease: false,
+                              prerelease: '',
+                              noVerify: true,
+                              skipChangelog: false,
+                            },
+                          });
+                        }
+                      }}
+                    >
                       <DialogTrigger asChild>
                         <Button>Adicionar nova versão</Button>
                       </DialogTrigger>
@@ -149,12 +204,24 @@ export function Home() {
                               {item.name}
                             </Label>
                           </div>
+                          <div className="flex gap-2">
+                            <Label>Versão atual: </Label>
+                            <Label className="text-muted-foreground font-normal">
+                              {dialogVersion}
+                            </Label>
+                          </div>
+                          <div className="flex gap-2">
+                            <Label>Nova Versão: </Label>
+                            <Label className="text-muted-foreground font-normal">
+                              {calculateNewVersion(dialogVersion)}
+                            </Label>
+                          </div>
                           <Label>Selecione o tipo de versão</Label>
                           <RadioGroup
                             value={parameters.newVersionType}
                             onValueChange={(value: string) => {
                               setParameters((prev) => {
-                                var newValue = {
+                                const newValue = {
                                   ...prev,
                                   newVersionType: value,
                                 };
@@ -162,6 +229,24 @@ export function Home() {
                               });
                             }}
                           >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="minor" id="r1" />
+                              <div className="flex gap-2">
+                                <Label htmlFor="r1">Minor</Label>
+                                <Label htmlFor="r1" className="text-muted">
+                                  1.x.x
+                                </Label>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="patch" id="r1" />
+                              <div className="flex gap-2">
+                                <Label htmlFor="r1">Patch</Label>
+                                <Label htmlFor="r1" className="text-muted">
+                                  x.x.1
+                                </Label>
+                              </div>
+                            </div>
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem value="major" id="r2" />
                               <div className="flex gap-2">
@@ -172,34 +257,142 @@ export function Home() {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="minor" id="r1" />
-                              <div className="flex gap-2">
-                                <Label htmlFor="r1">Major</Label>
-                                <Label htmlFor="r1" className="text-muted">
-                                  1.x.x
-                                </Label>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="custom" id="r3" />
+                              <RadioGroupItem
+                                value="custom"
+                                id="r3"
+                                checked={
+                                  parameters.newVersionType !== 'major' &&
+                                  parameters.newVersionType !== 'minor' &&
+                                  parameters.newVersionType !== 'patch'
+                                }
+                              />
                               <div className="flex flex-col gap-2">
                                 <Label htmlFor="r3">Personalizado</Label>
-                                {parameters.newVersionType === 'custom' && (
-                                  <Input
-                                    className="w-full"
-                                    placeholder="Digite aqui a versão"
-                                  />
-                                )}
+                                {parameters.newVersionType !== 'major' &&
+                                  parameters.newVersionType !== 'minor' &&
+                                  parameters.newVersionType !== 'patch' && (
+                                    <Input
+                                      className="w-full"
+                                      placeholder="Digite aqui a versão"
+                                      onChange={(e) => {
+                                        setParameters((prev) => {
+                                          const newValue: RunReleaseScriptParams =
+                                            {
+                                              ...prev,
+                                              newVersionType: e.target.value,
+                                            };
+                                          return newValue;
+                                        });
+                                      }}
+                                    />
+                                  )}
                               </div>
                             </div>
                           </RadioGroup>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Switch id="airplane-mode" />
-                          <Label htmlFor="airplane-mode">Pré Release</Label>
+                        <div className="flex flex-col gap-2 items-start ">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              id="pre-release"
+                              checked={!!parameters.options?.prerelease}
+                              onCheckedChange={(value) => {
+                                setParameters((prev) => {
+                                  const newValue: RunReleaseScriptParams = {
+                                    ...prev,
+                                    options: {
+                                      ...prev.options,
+                                      prerelease: value ? 'alpha' : '',
+                                    },
+                                  };
+                                  return newValue;
+                                });
+                              }}
+                            />
+                            <Label htmlFor="pre-release">Pré Release</Label>
+                          </div>
+                          {parameters.options?.prerelease && (
+                            <RadioGroup
+                              value={parameters.options.prerelease}
+                              onValueChange={(value: string) => {
+                                setParameters((prev) => {
+                                  const newValue: RunReleaseScriptParams = {
+                                    ...prev,
+                                    options: {
+                                      ...prev.options,
+                                      prerelease: value,
+                                    },
+                                  };
+                                  return newValue;
+                                });
+                              }}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="alpha" id="r2" />
+                                <div className="flex gap-2">
+                                  <Label htmlFor="r1">Alpha</Label>
+                                  <Label htmlFor="r1" className="text-muted">
+                                    x.1.x
+                                  </Label>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="beta" id="r1" />
+                                <div className="flex gap-2">
+                                  <Label htmlFor="r1">Beta</Label>
+                                  <Label htmlFor="r1" className="text-muted">
+                                    1.x.x
+                                  </Label>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem
+                                  value="custom"
+                                  checked={
+                                    parameters.options.prerelease !== 'beta' &&
+                                    parameters.options.prerelease !== 'alpha'
+                                  }
+                                  id="r3"
+                                />
+                                <div className="flex flex-col gap-2">
+                                  <Label htmlFor="r3">Personalizado</Label>
+                                  {parameters.options.prerelease !== 'beta' &&
+                                    parameters.options.prerelease !==
+                                      'alpha' && (
+                                      <Input
+                                        className="w-full"
+                                        placeholder="Digite aqui a pré release"
+                                        onChange={(e) => {
+                                          setParameters((prev) => {
+                                            const newValue: RunReleaseScriptParams =
+                                              {
+                                                ...prev,
+                                                options: {
+                                                  ...prev.options,
+                                                  prerelease: e.target.value,
+                                                },
+                                              };
+                                            return newValue;
+                                          });
+                                        }}
+                                      />
+                                    )}
+                                </div>
+                              </div>
+                            </RadioGroup>
+                          )}
                         </div>
-                        <Button>Adicionar nova versão</Button>
+                        <Button
+                          onClick={() => {
+                            handleAddNewVersion({
+                              newVersionType: parameters.newVersionType,
+                              workingDirectory: item.localPath,
+                              options: parameters.options,
+                            });
+                            setDialogOpen(false);
+                          }}
+                        >
+                          Adicionar nova versão
+                        </Button>
                       </DialogContent>
                     </Dialog>
                   </CardFooter>
@@ -212,5 +405,3 @@ export function Home() {
     </Card>
   );
 }
-
-// onClick={() => handleAddNewVersion(item.localPath)}
