@@ -19,6 +19,7 @@ import {
 } from '@renderer/components/ui/radio-group';
 import { DialogTitle } from '@radix-ui/react-dialog';
 import { Input } from '@renderer/components/ui/input';
+import semver from 'semver';
 
 interface UserProject {
   name: string;
@@ -103,38 +104,61 @@ export function Home() {
     );
   };
 
-  const calculateNewVersion = (currentVersion: string) => {
-    const versionParts = currentVersion.split('-');
+  interface ReleaseParameters {
+    newVersionType: 'major' | 'minor' | 'patch' | string;
+    options?: {
+      prerelease?: string;
+      // Add other options as needed
+    };
+  }
 
-    let [major, minor, patch] = versionParts[0].split('.').map(Number);
+  interface CurrentVersion {
+    success: boolean;
+    version: string;
+  }
 
-    // Verificando o tipo de versão selecionado e ajustando a nova versão
-    if (parameters.newVersionType === 'major') {
-      major += 1;
-      minor = 0;
-      patch = 0;
-    } else if (parameters.newVersionType === 'minor') {
-      minor += 1;
-      patch = 0;
-    } else if (parameters.newVersionType === 'patch') {
-      patch += 1;
-    } else if (
-      parameters.newVersionType !== 'major' &&
-      parameters.newVersionType !== 'minor' &&
-      parameters.newVersionType !== 'patch'
-    ) {
-      if (parameters?.options?.prerelease) {
-        return parameters.newVersionType + `-${parameters.options.prerelease}`;
-      }
-      return parameters.newVersionType;
+  const calculateNewVersion = (version: string): string => {
+    if (!version || typeof version !== 'string') {
+      throw new Error('Invalid current version data.');
     }
 
-    // Montando a nova versão
-    let newVersion = `${major}.${minor}.${patch}`;
+    // Remove 'v' prefix if present
+    let parsedVersion = version.startsWith('v') ? version.slice(1) : version;
 
-    // Se houver pré-release, adiciona ao final
-    if (parameters?.options?.prerelease) {
-      return newVersion + `-${parameters.options.prerelease}`;
+    // Validate the version string
+    if (!semver.valid(parsedVersion)) {
+      throw new Error(
+        `Invalid version format: ${version}. Expected format: major.minor.patch, e.g., v1.0.0 or 1.0.0`,
+      );
+    }
+
+    let newVersion: string;
+
+    switch (parameters.newVersionType) {
+      case 'major':
+      case 'minor':
+      case 'patch':
+        newVersion = semver.inc(parsedVersion, parameters.newVersionType)!;
+        break;
+      default:
+        // Handle custom version strings or prereleases
+        if (semver.valid(parameters.newVersionType)) {
+          newVersion = parameters.newVersionType;
+        } else if (parameters.options?.prerelease) {
+          newVersion = semver.inc(
+            parsedVersion,
+            'prerelease',
+            parameters.options.prerelease,
+          )!;
+          if (!newVersion) {
+            throw new Error('Failed to calculate prerelease version.');
+          }
+        } else {
+          throw new Error(
+            `Invalid newVersionType: ${parameters.newVersionType}. Must be 'major', 'minor', 'patch', a valid version string, or a prerelease identifier.`,
+          );
+        }
+        break;
     }
 
     return newVersion;
@@ -165,10 +189,10 @@ export function Home() {
                               'get-project-version',
                               item.localPath,
                             );
-                          if (version.success) {
-                            setDialogVersion(version);
+                          if (version.success && version.version) {
+                            setDialogVersion(version.version);
                           } else {
-                            setDialogVersion('1.1.0');
+                            setDialogVersion('1.1.0'); // Default or fallback version
                           }
                           console.log(version);
                           setDialogOpen(true);
@@ -213,7 +237,7 @@ export function Home() {
                           <div className="flex gap-2">
                             <Label>Nova Versão: </Label>
                             <Label className="text-muted-foreground font-normal">
-                              {calculateNewVersion(dialogVersion)}
+                              {calculateNewVersion(dialogVersion.version)}
                             </Label>
                           </div>
                           <Label>Selecione o tipo de versão</Label>
