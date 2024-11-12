@@ -1,8 +1,21 @@
-## 1.0.0 (2024-09-17)
+# Changelog
+
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+## 1.1.0 (2024-11-12)
+
 
 ### Features
 
 * add database configuration and themes ([a6f7f00](https://github.com/jonabergamo/changelog-generator-gui/commit/a6f7f0025ba835851e0fe12a7ed52bfcea1a0331))
 * adiciona dependencias e comandos novos ([8a2e8c6](https://github.com/jonabergamo/changelog-generator-gui/commit/8a2e8c6aefffaed6b3f305c2ffba64eec813a840))
+* adiciona formulario de adicao de versao ([d0d18fc](https://github.com/jonabergamo/changelog-generator-gui/commit/d0d18fc29c9e939b307934a5db7b38856c96ee9d))
 * adiciona framer motion nos cards ([b017c4a](https://github.com/jonabergamo/changelog-generator-gui/commit/b017c4acd62a4ea28074c50554c932119e94fa6f))
+* adiciona tipagens ([6db7d3c](https://github.com/jonabergamo/changelog-generator-gui/commit/6db7d3c623c540558d664fcd58d30d3cbee1ebe4))
 * configura shadcn ([2443cc8](https://github.com/jonabergamo/changelog-generator-gui/commit/2443cc8964dc85c63c9c3e1e354785b702eadb95))
+* finaliza dialog de criacao ([de0349e](https://github.com/jonabergamo/changelog-generator-gui/commit/de0349e5a587f94d9285078c9f3cbce565766f7d))
+
+
+### Bug Fixes
+
+* corrige comandos do standard-version ([21b714b](https://github.com/jonabergamo/changelog-generator-gui/commit/21b714b19cfc8157426b9218a4341ebe06871484))
