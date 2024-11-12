@@ -3,7 +3,7 @@ import path, { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { exec, spawn } from 'child_process';
-import sqlite3 from 'sqlite3';
+import Database from 'better-sqlite3';
 
 interface UserPreferences {
   theme: string;
@@ -29,19 +29,25 @@ export type RunReleaseScriptParams = {
   options?: ReleaseOptions; // Opções adicionais
 };
 
-// Criação do banco de dados
-const db = new sqlite3.Database('./database.db');
+// Criação e configuração do banco de dados com better-sqlite3
+const db = new Database(path.join(app.getPath('userData'), 'database.db'));
 
-db.serialize(() => {
-  // Criação das tabelas com id auto-incremental
-  db.run(
-    'CREATE TABLE IF NOT EXISTS user_preferences (id INTEGER PRIMARY KEY AUTOINCREMENT, theme TEXT)',
+// Criação das tabelas com id auto-incremental
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_preferences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    theme TEXT
   );
-  db.run(
-    'CREATE TABLE IF NOT EXISTS user_projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, localPath TEXT, changelogName TEXT)',
+  
+  CREATE TABLE IF NOT EXISTS user_projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    localPath TEXT,
+    changelogName TEXT
   );
-});
+`);
 
+// Função para criar a janela principal
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -95,9 +101,7 @@ function createWindow(): void {
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+// Quando o Electron estiver pronto, cria a janela
 app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron');
@@ -121,34 +125,95 @@ app.whenReady().then(() => {
   });
 });
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Sair quando todas as janelas estiverem fechadas, exceto no macOS.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-ipcMain.on('generate-changelog', (_, args) => {
-  const projectPath = args.path;
+// Manipulação de preferências do usuário
+ipcMain.handle('get-preferences', async () => {
+  try {
+    const row = db.prepare('SELECT theme FROM user_preferences LIMIT 1').get();
+    const theme = row ? row.theme : 'system';
+    return { theme };
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+});
 
-  // Comando para gerar o changelog
-  const command =
-    'conventional-changelog -p conventionalcommits -i CHANGELOG.md -s -r 1';
+ipcMain.handle('set-preferences', (_, theme: string) => {
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO user_preferences (id, theme)
+      VALUES (1, ?)
+      ON CONFLICT(id) DO UPDATE SET theme = excluded.theme
+    `);
+    stmt.run(theme);
+    return { success: true };
+  } catch (err) {
+    console.error(err);
+    return { success: false, error: err.message };
+  }
+});
 
-  // Navegar até o diretório do projeto e executar o comando
-  exec(command, { cwd: projectPath }, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Erro ao executar o comando: ${error.message}`);
-      return;
+// Manipulação de projetos do usuário
+ipcMain.handle('get-projects', async () => {
+  try {
+    const rows = db.prepare('SELECT * FROM user_projects').all();
+    const projects: UserProject[] = rows.map((row: any) => ({
+      name: row.name,
+      localPath: row.localPath,
+      changelogName: row.changelogName,
+    }));
+    return projects;
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+});
+
+ipcMain.handle('set-projects', (_, project: UserProject) => {
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO user_projects (name, localPath, changelogName)
+      VALUES (?, ?, ?)
+    `);
+    stmt.run(project.name, project.localPath, project.changelogName);
+    return { success: true };
+  } catch (err) {
+    console.error(err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('add-new-version', async (_, selectedPath) => {
+  const command = 'standard-version';
+
+  try {
+    const output = await new Promise<string>((resolve, reject) => {
+      exec(command, { cwd: selectedPath }, (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else if (stderr) {
+          reject(new Error(stderr));
+        } else {
+          console.log(stdout);
+          resolve(stdout);
+        }
+      });
+    });
+
+    return { success: true, output };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    } else {
+      return { success: false, error: 'An unknown error occurred' };
     }
-    if (stderr) {
-      console.error(`Erro no comando: ${stderr}`);
-      return;
-    }
-    console.log(`Saída do comando:\n${stdout}`);
-  });
+  }
 });
 
 ipcMain.handle('select-folder', async () => {
@@ -194,109 +259,6 @@ ipcMain.handle('generate-changelog', async (_, selectedPath) => {
       return { success: false, error: 'An unknown error occurred' };
     }
   }
-});
-// Manipulação de preferências do usuário
-ipcMain.handle('get-preferences', async () => {
-  return new Promise<UserPreferences | null>((resolve, reject) => {
-    db.all(
-      'SELECT theme FROM user_preferences LIMIT 1',
-      [],
-      (err, rows: UserPreferences[]) => {
-        if (err) {
-          reject(err);
-        }
-
-        if (rows) {
-          // Se não houver dados, retornar null
-          const theme = rows.length > 0 ? rows[0]?.theme : 'system';
-          resolve({ theme });
-        }
-      },
-    );
-  });
-});
-
-ipcMain.handle('set-preferences', (_, theme: string) => {
-  const stmt = db.prepare(
-    'REPLACE INTO user_preferences (id, theme) VALUES (1, ?)',
-  );
-  stmt.run(theme);
-  stmt.finalize();
-});
-
-// Manipulação de projetos do usuário
-ipcMain.handle('get-projects', async () => {
-  return new Promise<UserProject[]>((resolve, reject) => {
-    db.all('SELECT * FROM user_projects', [], (err, rows) => {
-      if (err) {
-        reject(err);
-      }
-      // Mapeia as linhas para UserProject
-      const projects: UserProject[] = rows.map((row: any) => ({
-        name: row.name,
-        localPath: row.localPath,
-        changelogName: row.changelogName,
-      }));
-      resolve(projects);
-    });
-  });
-});
-
-ipcMain.handle('set-projects', (_, project: UserProject) => {
-  const stmt = db.prepare(
-    'INSERT INTO user_projects (name, localPath, changelogName) VALUES (?, ?, ?)',
-  );
-  stmt.run(project.name, project.localPath, project.changelogName);
-  stmt.finalize();
-});
-
-ipcMain.handle('add-new-version', async (_, selectedPath) => {
-  const command = 'standard-version';
-
-  try {
-    const output = await new Promise((resolve, reject) => {
-      exec(command, { cwd: selectedPath }, (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
-        } else if (stderr) {
-          reject(new Error(stderr));
-        } else {
-          console.log(stdout);
-          resolve(stdout);
-        }
-      });
-    });
-
-    return { success: true, output };
-  } catch (error) {
-    // Verifica se o erro é uma instância de Error
-    if (error instanceof Error) {
-      return { success: false, error: error.message };
-    } else {
-      // Caso contrário, retorna uma mensagem de erro genérica
-      return { success: false, error: 'An unknown error occurred' };
-    }
-  }
-});
-
-ipcMain.on('generate-changelog', (_, args) => {
-  const projectPath = args.path;
-
-  // Comando para gerar o changelog
-  const command = 'npx standard-version --first-release';
-
-  // Navegar até o diretório do projeto e executar o comando
-  exec(command, { cwd: projectPath }, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Erro ao executar o comando: ${error.message}`);
-      return;
-    }
-    if (stderr) {
-      console.error(`Erro no comando: ${stderr}`);
-      return;
-    }
-    console.log(`Saída do comando:\n${stdout}`);
-  });
 });
 
 ipcMain.handle(
