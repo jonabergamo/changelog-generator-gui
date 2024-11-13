@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { exec, spawn } from 'child_process';
 import Database from 'better-sqlite3';
+import { promises as fs } from 'fs'; // Importa fs/promises
 
 interface UserProject {
   name: string;
@@ -13,7 +14,7 @@ interface UserProject {
 
 export type ReleaseOptions = {
   firstRelease?: boolean;
-  prerelease?: 'alpha' | 'beta'; // Ex: 'alpha', 'beta', etc.
+  prerelease?: 'alpha' | 'beta';
   noVerify?: boolean;
   skipChangelog?: boolean;
   // Adicione mais opções conforme necessário
@@ -257,116 +258,110 @@ ipcMain.handle('generate-changelog', async (_, selectedPath) => {
   }
 });
 
-ipcMain.handle(
-  'run-release-script',
-  async (_, { newVersionType, workingDirectory, options }) => {
-    // Montar o comando dinamicamente com base nas opções fornecidas
-    let command = `npx standard-version --release-as ${newVersionType}`;
-
-    // Adicionar opções extras ao comando se existirem
-    if (options) {
-      if (options.firstRelease) {
-        command += ' --first-release';
-      }
-      if (options.prerelease) {
-        command += ` --prerelease ${options.prerelease}`;
-      }
-      if (options.noVerify) {
-        command += ' --no-verify';
-      }
-      if (options.skipChangelog) {
-        command += ' --skip.changelog';
-      }
-    }
-
-    // Executar o primeiro comando: `npx standard-version`
+// Função auxiliar para executar comandos de forma síncrona com Promises
+function runCommand(command, cwd, errorMessage) {
+  return new Promise((resolve, reject) => {
     const child = spawn(command, {
       shell: true,
-      cwd: workingDirectory,
+      cwd,
       stdio: 'inherit',
     });
 
     child.on('error', (error) => {
-      console.error(`Erro ao executar o comando: ${error.message}`);
+      console.error(`${errorMessage}: ${error.message}`);
+      reject(error);
     });
 
     child.on('exit', (code) => {
       if (code !== 0) {
-        console.error('Erro ao executar o standard-version.');
+        const error = new Error(`${errorMessage} Código de saída: ${code}`);
+        reject(error);
       } else {
-        console.log('Versão criada com sucesso!');
-
-        const buildCommand = 'npm run build:linux';
-        const buildChild = spawn(buildCommand, {
-          shell: true,
-          cwd: workingDirectory,
-          stdio: 'inherit',
-        });
-
-        buildChild.on('error', (error) => {
-          console.error(`Erro ao executar o build: ${error.message}`);
-        });
-
-        buildChild.on('exit', (buildCode) => {
-          if (buildCode !== 0) {
-            console.error('Erro ao gerar o build.');
-          } else {
-            console.log('Build gerado com sucesso!');
-
-            // Adicionar o executável à tag no Git
-            const tagCommand = `git push --follow-tags origin feature/ui-improvements && git tag -a v${newVersionType} -m "Versão ${newVersionType}" && git push origin v${newVersionType}`;
-            const tagChild = spawn(tagCommand, {
-              shell: true,
-              cwd: workingDirectory,
-              stdio: 'inherit',
-            });
-
-            tagChild.on('error', (error) => {
-              console.error(`Erro ao criar a tag: ${error.message}`);
-            });
-
-            tagChild.on('exit', (tagCode) => {
-              if (tagCode !== 0) {
-                console.error('Erro ao criar ou fazer push da tag.');
-              } else {
-                console.log('Tag criada e enviada com sucesso!');
-
-                // Caminho do executável gerado
-                const executablePath = path.join(
-                  workingDirectory,
-                  'dist',
-                  'changelog-gen-2.0.1.AppImage',
-                );
-
-                // Criar a release no GitHub e fazer upload do executável
-                const releaseCommand = `gh release create v${newVersionType} ${executablePath} -t "v${newVersionType}" -n "Release v${newVersionType}"`;
-                const releaseChild = spawn(releaseCommand, {
-                  shell: true,
-                  cwd: workingDirectory,
-                  stdio: 'inherit',
-                });
-
-                releaseChild.on('error', (error) => {
-                  console.error(`Erro ao criar a release: ${error.message}`);
-                });
-
-                releaseChild.on('exit', (releaseCode) => {
-                  if (releaseCode !== 0) {
-                    console.error(
-                      'Erro ao criar a release ou fazer upload do executável.',
-                    );
-                  } else {
-                    console.log(
-                      'Release criada e executável adicionado com sucesso!',
-                    );
-                  }
-                });
-              }
-            });
-          }
-        });
+        resolve('');
       }
     });
+  });
+}
+
+ipcMain.handle(
+  'run-release-script',
+  async (_, { newVersionType, workingDirectory, options }) => {
+    try {
+      // Montar o comando dinamicamente com base nas opções fornecidas
+      let command = `npx standard-version --release-as ${newVersionType}`;
+
+      // Adicionar opções extras ao comando se existirem
+      if (options) {
+        if (options.firstRelease) {
+          command += ' --first-release';
+        }
+        if (options.prerelease) {
+          command += ` --prerelease ${options.prerelease}`;
+        }
+        if (options.noVerify) {
+          command += ' --no-verify';
+        }
+        if (options.skipChangelog) {
+          command += ' --skip.changelog';
+        }
+      }
+
+      // Executar o comando: `npx standard-version`
+      await runCommand(
+        command,
+        workingDirectory,
+        'Erro ao executar o standard-version.',
+      );
+
+      console.log('Versão criada com sucesso!');
+
+      // Ler a nova versão do package.json
+      const packageJsonPath = path.join(workingDirectory, 'package.json');
+      const packageJson = await fs.readFile(packageJsonPath, 'utf8');
+      const { version } = JSON.parse(packageJson);
+
+      console.log(`Nova versão detectada: ${version}`);
+
+      // Executar o build
+      const buildCommand = 'npm run build:linux';
+      await runCommand(
+        buildCommand,
+        workingDirectory,
+        'Erro ao executar o build.',
+      );
+
+      console.log('Build gerado com sucesso!');
+
+      // Fazer push das mudanças e tags
+      const pushCommand = `git push origin --follow-tags`;
+      await runCommand(
+        pushCommand,
+        workingDirectory,
+        'Erro ao fazer push dos commits e tags.',
+      );
+
+      console.log('Commits e tags enviados com sucesso!');
+
+      // Caminho do executável gerado
+      const executablePath = path.join(
+        workingDirectory,
+        'dist',
+        `changelog-gen-${version}.AppImage`,
+      );
+
+      // Criar a release no GitHub e fazer upload do executável
+      const releaseCommand = `gh release create v${version} ${executablePath} -t "v${version}" -n "Release v${version}"`;
+      await runCommand(
+        releaseCommand,
+        workingDirectory,
+        'Erro ao criar a release ou fazer upload do executável.',
+      );
+
+      console.log('Release criada e executável adicionado com sucesso!');
+    } catch (error: any) {
+      console.error(`Erro no processo de release: ${error.message}`);
+      throw error; // Rejeita a promessa para que o front-end possa lidar com o erro
+    }
   },
 );
 
