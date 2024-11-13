@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [6.0.0](https://github.com/jonabergamo/changelog-generator-gui/compare/v5.0.0...v6.0.0) (2024-11-13)
+
+
+### Features
+
+* sobe arquivo junto da release ([28b34df](https://github.com/jonabergamo/changelog-generator-gui/commit/28b34df9c948dde6d7d6c5951e486230c1b399e1))
+
 ## [5.0.0](https://github.com/jonabergamo/changelog-generator-gui/compare/v4.0.0...v5.0.0) (2024-11-13)
 
 ## 4.0.0 (2024-11-13)
