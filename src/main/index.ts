@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { exec, spawn } from 'child_process';
 import Database from 'better-sqlite3';
+import fs from 'fs';
 
 interface UserProject {
   name: string;
@@ -260,6 +261,8 @@ ipcMain.handle('generate-changelog', async (_, selectedPath) => {
 ipcMain.handle(
   'run-release-script',
   async (_, { newVersionType, workingDirectory, options }) => {
+    const scriptPath = path.join(__dirname, './release.ps1');
+
     // Montar o comando dinamicamente com base nas opções fornecidas
     let command = `npx standard-version --release-as ${newVersionType}`;
 
@@ -297,7 +300,7 @@ ipcMain.handle(
         console.log('Versão criada com sucesso!');
 
         // Criar o executável com o comando de build
-        const buildCommand = 'npm run build:win'; // ou o comando específico para criar o executável
+        const buildCommand = 'npm run build:linux'; // ou o comando específico para criar o executável
         const buildChild = spawn(buildCommand, {
           shell: true,
           cwd: workingDirectory,
@@ -314,33 +317,18 @@ ipcMain.handle(
           } else {
             console.log('Build gerado com sucesso!');
 
-            // Caminho do executável gerado
-            const executablePath = path.join(
-              workingDirectory,
-              'dist',
-              'my-executable.exe',
-            ); // ajuste conforme necessário
+            // Caminho do diretório de saída do build
+            const distPath = path.join(workingDirectory, 'dist');
 
-            // Adicionar o executável à tag no Git
-            const tagCommand = `git push --follow-tags origin feature/ui-improvements && git tag -a v${newVersionType} -m "Versão ${newVersionType}" && git push origin v${newVersionType}`;
-            const tagChild = spawn(tagCommand, {
-              shell: true,
-              cwd: workingDirectory,
-              stdio: 'inherit',
-            });
+            // Obter todos os arquivos na pasta dist para upload
+            const filesToUpload = fs
+              .readdirSync(distPath)
+              .map((file) => path.join(distPath, file));
 
-            tagChild.on('error', (error) => {
-              console.error(`Erro ao criar a tag: ${error.message}`);
-            });
-
-            tagChild.on('exit', (tagCode) => {
-              if (tagCode !== 0) {
-                console.error('Erro ao criar ou fazer push da tag.');
-              } else {
-                console.log('Tag criada e enviada com sucesso!');
-
-                // Adicionar o executável à tag usando `git`
-                const releaseAssetCommand = `gh release upload v${newVersionType} ${executablePath}`;
+            // Adicionar todos os arquivos à tag usando `gh`
+            const uploadPromises = filesToUpload.map((filePath) => {
+              const releaseAssetCommand = `gh release upload v${newVersionType} "${filePath}"`;
+              return new Promise((resolve, reject) => {
                 const releaseAssetChild = spawn(releaseAssetCommand, {
                   shell: true,
                   cwd: workingDirectory,
@@ -349,19 +337,40 @@ ipcMain.handle(
 
                 releaseAssetChild.on('error', (error) => {
                   console.error(
-                    `Erro ao adicionar o executável à tag: ${error.message}`,
+                    `Erro ao adicionar o arquivo ${filePath} à tag: ${error.message}`,
                   );
+                  reject(error);
                 });
 
                 releaseAssetChild.on('exit', (releaseAssetCode) => {
                   if (releaseAssetCode !== 0) {
-                    console.error('Erro ao adicionar o executável à tag.');
+                    console.error(
+                      `Erro ao adicionar o arquivo ${filePath} à tag.`,
+                    );
+                    reject(new Error('Erro no upload de arquivo.'));
                   } else {
-                    console.log('Executável adicionado com sucesso à tag!');
+                    console.log(
+                      `Arquivo ${filePath} adicionado com sucesso à tag!`,
+                    );
+                    resolve('');
                   }
                 });
-              }
+              });
             });
+
+            // Executar todos os uploads em sequência
+            Promise.all(uploadPromises)
+              .then(() => {
+                console.log(
+                  'Todos os arquivos foram adicionados à tag com sucesso!',
+                );
+              })
+              .catch((error) => {
+                console.error(
+                  'Erro ao adicionar todos os arquivos à tag:',
+                  error,
+                );
+              });
           }
         });
       }
