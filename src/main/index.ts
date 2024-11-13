@@ -4,7 +4,6 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { exec, spawn } from 'child_process';
 import Database from 'better-sqlite3';
-import fs from 'fs';
 
 interface UserProject {
   name: string;
@@ -261,8 +260,6 @@ ipcMain.handle('generate-changelog', async (_, selectedPath) => {
 ipcMain.handle(
   'run-release-script',
   async (_, { newVersionType, workingDirectory, options }) => {
-    const scriptPath = path.join(__dirname, './release.ps1');
-
     // Montar o comando dinamicamente com base nas opções fornecidas
     let command = `npx standard-version --release-as ${newVersionType}`;
 
@@ -299,8 +296,7 @@ ipcMain.handle(
       } else {
         console.log('Versão criada com sucesso!');
 
-        // Criar o executável com o comando de build
-        const buildCommand = 'npm run build:linux'; // ou o comando específico para criar o executável
+        const buildCommand = 'npm run build:linux';
         const buildChild = spawn(buildCommand, {
           shell: true,
           cwd: workingDirectory,
@@ -317,60 +313,56 @@ ipcMain.handle(
           } else {
             console.log('Build gerado com sucesso!');
 
-            // Caminho do diretório de saída do build
-            const distPath = path.join(workingDirectory, 'dist');
+            // Adicionar o executável à tag no Git
+            const tagCommand = `git push --follow-tags origin feature/ui-improvements && git tag -a v${newVersionType} -m "Versão ${newVersionType}" && git push origin v${newVersionType}`;
+            const tagChild = spawn(tagCommand, {
+              shell: true,
+              cwd: workingDirectory,
+              stdio: 'inherit',
+            });
 
-            // Obter todos os arquivos na pasta dist para upload
-            const filesToUpload = fs
-              .readdirSync(distPath)
-              .map((file) => path.join(distPath, file));
+            tagChild.on('error', (error) => {
+              console.error(`Erro ao criar a tag: ${error.message}`);
+            });
 
-            // Adicionar todos os arquivos à tag usando `gh`
-            const uploadPromises = filesToUpload.map((filePath) => {
-              const releaseAssetCommand = `gh release upload v${newVersionType} "${filePath}"`;
-              return new Promise((resolve, reject) => {
-                const releaseAssetChild = spawn(releaseAssetCommand, {
+            tagChild.on('exit', (tagCode) => {
+              if (tagCode !== 0) {
+                console.error('Erro ao criar ou fazer push da tag.');
+              } else {
+                console.log('Tag criada e enviada com sucesso!');
+
+                // Caminho do executável gerado
+                const executablePath = path.join(
+                  workingDirectory,
+                  'dist',
+                  'changelog-gen-2.0.1.AppImage',
+                );
+
+                // Criar a release no GitHub e fazer upload do executável
+                const releaseCommand = `gh release create v${newVersionType} ${executablePath} -t "v${newVersionType}" -n "Release v${newVersionType}"`;
+                const releaseChild = spawn(releaseCommand, {
                   shell: true,
                   cwd: workingDirectory,
                   stdio: 'inherit',
                 });
 
-                releaseAssetChild.on('error', (error) => {
-                  console.error(
-                    `Erro ao adicionar o arquivo ${filePath} à tag: ${error.message}`,
-                  );
-                  reject(error);
+                releaseChild.on('error', (error) => {
+                  console.error(`Erro ao criar a release: ${error.message}`);
                 });
 
-                releaseAssetChild.on('exit', (releaseAssetCode) => {
-                  if (releaseAssetCode !== 0) {
+                releaseChild.on('exit', (releaseCode) => {
+                  if (releaseCode !== 0) {
                     console.error(
-                      `Erro ao adicionar o arquivo ${filePath} à tag.`,
+                      'Erro ao criar a release ou fazer upload do executável.',
                     );
-                    reject(new Error('Erro no upload de arquivo.'));
                   } else {
                     console.log(
-                      `Arquivo ${filePath} adicionado com sucesso à tag!`,
+                      'Release criada e executável adicionado com sucesso!',
                     );
-                    resolve('');
                   }
                 });
-              });
+              }
             });
-
-            // Executar todos os uploads em sequência
-            Promise.all(uploadPromises)
-              .then(() => {
-                console.log(
-                  'Todos os arquivos foram adicionados à tag com sucesso!',
-                );
-              })
-              .catch((error) => {
-                console.error(
-                  'Erro ao adicionar todos os arquivos à tag:',
-                  error,
-                );
-              });
           }
         });
       }
