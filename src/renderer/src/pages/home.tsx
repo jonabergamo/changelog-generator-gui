@@ -1,9 +1,8 @@
 import { Button } from '@renderer/components/ui/button';
-import { Card, CardContent, CardFooter } from '@renderer/components/ui/card';
+import { Card, CardFooter } from '@renderer/components/ui/card';
 import { useState, useEffect } from 'react';
 import { Label } from '../components/ui/label';
 import toast from 'react-hot-toast';
-import { useTheme } from 'next-themes';
 import { motion } from 'framer-motion';
 import {
   Dialog,
@@ -40,8 +39,9 @@ export function Home() {
     },
   });
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogVersion, setDialogVersion] = useState('');
-  const { setTheme } = useTheme();
+  const [dialogVersion, setDialogVersion] = useState<CurrentVersion | null>(
+    null,
+  );
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -104,22 +104,15 @@ export function Home() {
     );
   };
 
-  interface ReleaseParameters {
-    newVersionType: 'major' | 'minor' | 'patch' | string;
-    options?: {
-      prerelease?: string;
-      // Add other options as needed
-    };
-  }
-
   interface CurrentVersion {
-    success: boolean;
+    success?: boolean;
     version: string;
   }
 
-  const calculateNewVersion = (version: string): string => {
+  const calculateNewVersion = (version: string | null): string => {
+    console.log(version);
     if (!version || typeof version !== 'string') {
-      throw new Error('Invalid current version data.');
+      return '';
     }
 
     // Remove 'v' prefix if present
@@ -190,15 +183,15 @@ export function Home() {
                               item.localPath,
                             );
                           if (version.success && version.version) {
-                            setDialogVersion(version.version);
+                            setDialogVersion({ version: version.version });
                           } else {
-                            setDialogVersion('1.1.0'); // Default or fallback version
+                            setDialogVersion({ version: '1.1.0' });
                           }
                           console.log(version);
                           setDialogOpen(true);
                         } else {
                           setDialogOpen(false);
-                          setDialogVersion('');
+                          setDialogVersion(null);
                           setParameters({
                             newVersionType: 'major',
                             workingDirectory: '',
@@ -231,13 +224,16 @@ export function Home() {
                           <div className="flex gap-2">
                             <Label>Versão atual: </Label>
                             <Label className="text-muted-foreground font-normal">
-                              {dialogVersion}
+                              {dialogVersion?.version}
                             </Label>
                           </div>
                           <div className="flex gap-2">
                             <Label>Nova Versão: </Label>
                             <Label className="text-muted-foreground font-normal">
-                              {calculateNewVersion(dialogVersion.version)}
+                              v
+                              {calculateNewVersion(
+                                dialogVersion?.version ?? null,
+                              )}
                             </Label>
                           </div>
                           <Label>Selecione o tipo de versão</Label>
