@@ -5,10 +5,6 @@ import icon from '../../resources/icon.png?asset';
 import { exec, spawn } from 'child_process';
 import Database from 'better-sqlite3';
 
-interface UserPreferences {
-  theme: string;
-}
-
 interface UserProject {
   name: string;
   localPath: string;
@@ -153,7 +149,7 @@ ipcMain.handle('set-preferences', (_, theme: string) => {
     `);
     stmt.run(theme);
     return { success: true };
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
     return { success: false, error: err.message };
   }
@@ -183,7 +179,7 @@ ipcMain.handle('set-projects', (_, project: UserProject) => {
     `);
     stmt.run(project.name, project.localPath, project.changelogName);
     return { success: true };
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
     return { success: false, error: err.message };
   }
@@ -263,12 +259,7 @@ ipcMain.handle('generate-changelog', async (_, selectedPath) => {
 
 ipcMain.handle(
   'run-release-script',
-  async (
-    _,
-    { newVersionType, workingDirectory, options }: RunReleaseScriptParams,
-  ) => {
-    const scriptPath = path.join(__dirname, './release.ps1'); // Caminho para o script
-
+  async (_, { newVersionType, workingDirectory, options }) => {
     // Montar o comando dinamicamente com base nas opções fornecidas
     let command = `npx standard-version --release-as ${newVersionType}`;
 
@@ -286,14 +277,13 @@ ipcMain.handle(
       if (options.skipChangelog) {
         command += ' --skip.changelog';
       }
-      // Adicione mais opções conforme necessário
     }
 
-    // Usar spawn para executar o comando em um terminal interativo
+    // Executar o primeiro comando: `npx standard-version`
     const child = spawn(command, {
       shell: true,
       cwd: workingDirectory,
-      stdio: 'inherit', // Permitir que a saída seja exibida no terminal
+      stdio: 'inherit',
     });
 
     child.on('error', (error) => {
@@ -301,11 +291,79 @@ ipcMain.handle(
     });
 
     child.on('exit', (code) => {
-      console.log(`Comando executado com código de saída: ${code}`);
       if (code !== 0) {
         console.error('Erro ao executar o standard-version.');
       } else {
         console.log('Versão criada com sucesso!');
+
+        // Criar o executável com o comando de build
+        const buildCommand = 'npm run build:win'; // ou o comando específico para criar o executável
+        const buildChild = spawn(buildCommand, {
+          shell: true,
+          cwd: workingDirectory,
+          stdio: 'inherit',
+        });
+
+        buildChild.on('error', (error) => {
+          console.error(`Erro ao executar o build: ${error.message}`);
+        });
+
+        buildChild.on('exit', (buildCode) => {
+          if (buildCode !== 0) {
+            console.error('Erro ao gerar o build.');
+          } else {
+            console.log('Build gerado com sucesso!');
+
+            // Caminho do executável gerado
+            const executablePath = path.join(
+              workingDirectory,
+              'dist',
+              'my-executable.exe',
+            ); // ajuste conforme necessário
+
+            // Adicionar o executável à tag no Git
+            const tagCommand = `git push --follow-tags origin feature/ui-improvements && git tag -a v${newVersionType} -m "Versão ${newVersionType}" && git push origin v${newVersionType}`;
+            const tagChild = spawn(tagCommand, {
+              shell: true,
+              cwd: workingDirectory,
+              stdio: 'inherit',
+            });
+
+            tagChild.on('error', (error) => {
+              console.error(`Erro ao criar a tag: ${error.message}`);
+            });
+
+            tagChild.on('exit', (tagCode) => {
+              if (tagCode !== 0) {
+                console.error('Erro ao criar ou fazer push da tag.');
+              } else {
+                console.log('Tag criada e enviada com sucesso!');
+
+                // Adicionar o executável à tag usando `git`
+                const releaseAssetCommand = `gh release upload v${newVersionType} ${executablePath}`;
+                const releaseAssetChild = spawn(releaseAssetCommand, {
+                  shell: true,
+                  cwd: workingDirectory,
+                  stdio: 'inherit',
+                });
+
+                releaseAssetChild.on('error', (error) => {
+                  console.error(
+                    `Erro ao adicionar o executável à tag: ${error.message}`,
+                  );
+                });
+
+                releaseAssetChild.on('exit', (releaseAssetCode) => {
+                  if (releaseAssetCode !== 0) {
+                    console.error('Erro ao adicionar o executável à tag.');
+                  } else {
+                    console.log('Executável adicionado com sucesso à tag!');
+                  }
+                });
+              }
+            });
+          }
+        });
       }
     });
   },
