@@ -3,5 +3,6 @@ dist
 out
 .DS_Store
 *.log*
+database.db
 venv
 script.py
