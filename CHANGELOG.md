@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 7.1.0 (2024-11-20)
+
+
+### Features
+
+* add database configuration and themes ([4114746](https://github.com/jonabergamo/changelog-generator-gui/commit/41147467c64ba748cb2a80e7198c2b64c46458ee))
+* adiciona dependencias e comandos novos ([65b561d](https://github.com/jonabergamo/changelog-generator-gui/commit/65b561d7b3517653f9d152806b1529f5cfb28f54))
+* adiciona formulario de adicao de versao ([12511c5](https://github.com/jonabergamo/changelog-generator-gui/commit/12511c5b2ceb57a5ff548b50be86a400e66110bd))
+* adiciona framer motion nos cards ([eeb2a95](https://github.com/jonabergamo/changelog-generator-gui/commit/eeb2a951d732811d97309d0d6a25849e04a95189))
+* adiciona tipagens ([c5ba5b9](https://github.com/jonabergamo/changelog-generator-gui/commit/c5ba5b9562468a1410795e899351173510f878d6))
+* configura shadcn ([ef2cc7b](https://github.com/jonabergamo/changelog-generator-gui/commit/ef2cc7b196f3601b048c804f808182da591da129))
+* finaliza dialog de criacao ([942da60](https://github.com/jonabergamo/changelog-generator-gui/commit/942da608cba4dc7d4594a81e997e3ab79fdc21a5))
+* sobe arquivo junto da release ([0421ef1](https://github.com/jonabergamo/changelog-generator-gui/commit/0421ef1dec21be43782fb99c6e07f37fe390d4cd))
+* ui improves merge ([a382474](https://github.com/jonabergamo/changelog-generator-gui/commit/a382474f1d369cd76bc83517db204f86d503aadc))
+
+
+### Bug Fixes
+
+* corrige comandos do standard-version ([50e6b9a](https://github.com/jonabergamo/changelog-generator-gui/commit/50e6b9aa1f5dd87eb160e25a0baa725672530a04))
+* remove type errors ([9610bdf](https://github.com/jonabergamo/changelog-generator-gui/commit/9610bdf937dfec98b1d32ca896362221aef07195))
+* sqlite3 bug ([208fc4d](https://github.com/jonabergamo/changelog-generator-gui/commit/208fc4d53f7f32033fdbd74701857e707a74ad3a))
+
 ## [7.0.0](https://github.com/jonabergamo/changelog-generator-gui/compare/v6.0.0...v7.0.0) (2024-11-13)
 
 ## [6.0.0](https://github.com/jonabergamo/changelog-generator-gui/compare/v5.0.0...v6.0.0) (2024-11-13)
