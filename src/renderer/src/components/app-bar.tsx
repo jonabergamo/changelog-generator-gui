@@ -1,4 +1,4 @@
-import { Square, Minus, X, LucideIcon, MonitorCog } from 'lucide-react'
+import { Minus, X, LucideIcon, MonitorCog } from 'lucide-react'
 import './app-bar.css'
 import { Label } from './ui/label'
 const { ipcRenderer } = window.require('electron')
@@ -25,10 +25,6 @@ export default function AppBar() {
     ipcRenderer.send('app:minimize')
   }
 
-  const handleMaximize = () => {
-    ipcRenderer.send('app:maximize')
-  }
-
   const handleClose = () => {
     ipcRenderer.send('app:close')
   }
@@ -41,7 +37,6 @@ export default function AppBar() {
       </div>
       <div className="h-full flex items-center justify-center">
         <AppBarButton onClick={handleMinimize} icon={Minus} className="hover:bg-gray-500" />
-        <AppBarButton onClick={handleMaximize} icon={Square} />
         <AppBarButton onClick={handleClose} icon={X} />
       </div>
     </div>

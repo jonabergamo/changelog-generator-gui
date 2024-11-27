@@ -10,4 +10,7 @@ export type RunReleaseScriptParams = {
   newVersionType: 'major' | 'minor' | 'path' | string; // Ex: 'major', 'minor', 'patch', ou uma versão específica '1.2.3'
   workingDirectory: string; // Caminho para o diretório de trabalho
   options?: ReleaseOptions; // Opções adicionais
+  shouldBuild?: boolean;
+  buildCommand?: string;
+  uploadDirectory?: string;
 };
