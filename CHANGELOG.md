@@ -1,11 +1,13 @@
 # 1.0.0 (2024-11-27)
 
 
+
 ### Bug Fixes
 
 * corrige comandos do standard-version ([50e6b9a](https://github.com/jonabergamo/changelog-generator-gui/commit/50e6b9aa1f5dd87eb160e25a0baa725672530a04))
 * remove type errors ([2ee36d6](https://github.com/jonabergamo/changelog-generator-gui/commit/2ee36d658fe6fe04e591fc789275eae3971b835b))
 * sqlite3 bug ([49c1c1a](https://github.com/jonabergamo/changelog-generator-gui/commit/49c1c1a461e27b6e080d3bb68193364f650f4036))
+
 
 
 ### Features
@@ -20,6 +22,3 @@
 * sobe arquivo junto da release ([62e0dc5](https://github.com/jonabergamo/changelog-generator-gui/commit/62e0dc5453125f1574ad4cc2486e1b9a825d6c07))
 * update gitignore and dependencies ([cb8f37b](https://github.com/jonabergamo/changelog-generator-gui/commit/cb8f37bbe059767b7c72574aa98ce53054cc6f71))
 * update ui and versions ([0f49ea5](https://github.com/jonabergamo/changelog-generator-gui/commit/0f49ea54b40f49f5062f6a8ec9d0fd69ef755da4))
-
-
-

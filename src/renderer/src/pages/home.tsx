@@ -40,6 +40,7 @@ import {
 import { BiSolidSpreadsheet } from 'react-icons/bi';
 import useColor from '@renderer/lib/hooks/use-color';
 
+
 interface UserProject {
   name: string;
   localPath: string;
@@ -80,6 +81,7 @@ export function Home() {
     const url = event.currentTarget.href;
     window.electron.ipcRenderer.invoke('open-link', url);
   };
+
 
   useEffect(() => {
     const loadData = async () => {
@@ -246,6 +248,7 @@ export function Home() {
                             onClick={() => loadChangelog(item)}
                             variant="outline"
                             className=" text-2xl flex p-3 h-full justify-center items-center"
+
                           >
                             <BiSolidSpreadsheet />
                           </Button>

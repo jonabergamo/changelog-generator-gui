@@ -1,6 +1,6 @@
 {
   "name": "changelog-gen",
-  "version": "1.0.0",
+  "version": "7.1.0",
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
   "author": "example.com",
@@ -34,6 +34,7 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "better-sqlite3": "^11.6.0",
     "class-variance-authority": "^0.7.1",
+
     "conventional-changelog-cli": "^5.0.0",
     "electron-settings": "^4.0.4",
     "electron-store": "^10.0.0",

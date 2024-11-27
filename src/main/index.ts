@@ -14,6 +14,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'; // Electro
 import icon from '../../resources/icon.png?asset'; // Application icon
 import { existsSync, readFileSync, writeFileSync } from 'fs'; // Adicionada importação no início do arquivo
 
+
 interface UserProject {
   id?: number; // Adicionado opcional para operações que não precisam do ID
   name: string;
@@ -172,6 +173,7 @@ ipcMain.handle(
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const stmt = db.prepare(`
+
       INSERT INTO user_preferences (id, theme)
       VALUES (1, ?)
       ON CONFLICT(id) DO UPDATE SET theme = excluded.theme
@@ -284,6 +286,7 @@ ipcMain.handle(
             resolve(stdout);
           }
         });
+
       });
 
       return { success: true, output };
@@ -358,6 +361,7 @@ ipcMain.handle(
 
 // Função auxiliar para gerar o changelog
 async function generateChangelog(selectedPath: string): Promise<string> {
+
   const command = 'conventional-changelog -p angular -i CHANGELOG.md -s -r 0';
 
   try {
@@ -393,6 +397,7 @@ function runCommand(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const child: ChildProcess = spawn(command, {
+
       shell: true,
       cwd,
       stdio: 'inherit',
@@ -614,6 +619,7 @@ ipcMain.handle(
     } catch (error: any) {
       console.error('Erro ao abrir o arquivo no explorador:', error);
       return { success: false, error: error.message };
+
     }
   },
 );
