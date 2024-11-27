@@ -355,6 +355,35 @@ ipcMain.handle(
   },
 );
 
+// Função auxiliar para gerar o changelog
+async function generateChangelog(selectedPath: string): Promise<string> {
+  const command = 'conventional-changelog -p angular -i CHANGELOG.md -s -r 0';
+
+  try {
+    const output = await new Promise<string>((resolve, reject) => {
+      exec(command, { cwd: selectedPath }, (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else if (stderr) {
+          reject(new Error(stderr));
+        } else {
+          resolve(stdout);
+        }
+      });
+    });
+
+    console.log('Changelog gerado com sucesso.');
+    return output;
+  } catch (error) {
+    console.error('Erro ao gerar o changelog:', error);
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    } else {
+      throw new Error('Ocorreu um erro desconhecido ao gerar o changelog.');
+    }
+  }
+}
+
 // Função auxiliar para executar comandos de forma síncrona com Promises
 function runCommand(
   command: string,
@@ -539,10 +568,13 @@ ipcMain.handle(
 
       // Verifica se o arquivo existe
       if (!existsSync(changelogPath)) {
-        console.log('CHANGELOG.md não encontrado. Criando o arquivo...');
+        console.log(
+          'CHANGELOG.md não encontrado. Gerando changelog automaticamente...',
+        );
 
-        // Cria o arquivo com um conteúdo inicial (ou vazio)
-        writeFileSync(changelogPath, '', 'utf-8');
+        // Gera o changelog automaticamente
+        await generateChangelog(projectPath);
+        console.log('CHANGELOG.md gerado automaticamente.');
       }
 
       // Lê o conteúdo do arquivo
