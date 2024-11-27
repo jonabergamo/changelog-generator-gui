@@ -1,8 +1,9 @@
-import AppBar from './components/app-bar'
-import CustomToaster from './components/custom-toaster'
-import { Home } from './pages/home'
-import { HashRouter as Router, Route, Routes } from 'react-router-dom'
-import { ThemeProvider as NextThemesProvider } from 'next-themes'
+import AppBar from './components/app-bar';
+import CustomToaster from './components/custom-toaster';
+import { Home } from './pages/home';
+import { HashRouter as Router, Route, Routes } from 'react-router-dom';
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
+import { TooltipProvider } from './components/ui/tooltip';
 
 function App(): JSX.Element {
   return (
@@ -13,18 +14,13 @@ function App(): JSX.Element {
       themes={[
         'light',
         'dark',
-        'red',
-        'red-dark',
         'green',
         'green-dark',
         'dracula',
         'dracula-dark',
         'gold',
         'gold-dark',
-        'azarath',
-        'azarath-dark',
         'poimandres',
-        'poimandres-dark',
         'discord',
         'discord-dark',
         'adj',
@@ -37,22 +33,24 @@ function App(): JSX.Element {
         'aura-dark',
         'pro-hacker',
         'tokyo-city-lighter',
-        'ayu-light-bordered'
+        'ayu-light-bordered',
       ]}
     >
       <Router>
         <div className="flex flex-col h-screen overflow-hidden">
-          <CustomToaster />
-          <AppBar />
-          <div className="flex-1 overflow-y-auto">
-            <Routes>
-              <Route path="/" element={<Home />} />
-            </Routes>
-          </div>
+          <TooltipProvider>
+            <CustomToaster />
+            <AppBar />
+            <div className="flex-1 overflow-y-auto">
+              <Routes>
+                <Route path="/" element={<Home />} />
+              </Routes>
+            </div>
+          </TooltipProvider>
         </div>
       </Router>
     </NextThemesProvider>
-  )
+  );
 }
 
-export default App
+export default App;
