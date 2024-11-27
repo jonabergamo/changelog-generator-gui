@@ -43,7 +43,7 @@ export default function AppBar() {
   };
 
   return (
-    <div className="flex items-center  justify-center bg-secondary px-1">
+    <div className="flex items-center  justify-center bg-secondary px-1 rounded-t">
       <div className="w-full app-bar gap-1  h-8 text-primary  flex items-center justify-start">
         <MonitorCog />
         <Label>Changelog Generator</Label>
