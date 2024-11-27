@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip';
 import { BiSolidSpreadsheet } from 'react-icons/bi';
+import useColor from '@renderer/lib/hooks/use-color';
 
 interface UserProject {
   name: string;
@@ -66,7 +67,11 @@ export function Home() {
   );
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [changelogDialogOpen, setChangelogDialogOpen] = useState(false);
+  const color = useColor({ variable: 'primary', convert: true });
 
+  useEffect(() => {
+    console.log(color);
+  }, [color]);
   // Manipula cliques em links
   const handleLinkClick = (
     event: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
@@ -209,16 +214,15 @@ export function Home() {
   return (
     <div className="flex h-full w-full">
       <Card className=" p-0 border-r-2 m-5 gap-2 w-full">
-        <CardFooter className="h-[15%] ">
-          <Button
-            onClick={ipcHandle}
-            variant="ghost"
-            className="gap-2 text-primary hover:text-primary w-full"
-          >
-            <IoMdAdd />
-            Adicionar Projeto
-          </Button>
-        </CardFooter>
+        <CardHeader className="flex justify-start">
+          <CardTitle className="flex items-center justify-between">
+            Meus Projetos
+            <Button onClick={ipcHandle} variant="default" className="gap-2 ">
+              <IoMdAdd />
+              Adicionar Projeto
+            </Button>
+          </CardTitle>
+        </CardHeader>
         <CardContent className="flex flex-col gap-4 items-start  w-full overflow-y-auto h-[85%]">
           {data.length === 0 ? (
             <Label>Nenhum projeto inserido.</Label>
@@ -226,7 +230,7 @@ export function Home() {
             data.map((item) => (
               <div key={item.localPath} className="w-full">
                 <span className="relative flex items-center h-full">
-                  <Card className="h-fit w-full flex py-5 flex-col gap-2 bg-black/15 border-l-8 border-primary overflow-hidden">
+                  <Card className="h-fit w-full flex py-5 flex-col gap-2 border-l-8 border-primary overflow-hidden">
                     <CardHeader className="py-0">
                       <CardTitle className="flex w-full justify-between items-center">
                         <Label className="text-xl">{item.name}</Label>
@@ -241,7 +245,7 @@ export function Home() {
                           <Button
                             onClick={() => loadChangelog(item)}
                             variant="outline"
-                            className=" text-2xl flex hover:text-primary  p-3 h-full justify-center items-center"
+                            className=" text-2xl flex p-3 h-full justify-center items-center"
                           >
                             <BiSolidSpreadsheet />
                           </Button>
@@ -290,7 +294,7 @@ export function Home() {
                             <DialogTrigger asChild>
                               <Button
                                 variant="outline"
-                                className=" text-2xl flex hover:text-primary p-3 h-full justify-center items-center"
+                                className=" text-2xl flex p-3 h-full justify-center items-center"
                               >
                                 <GiUpgrade />
                               </Button>
@@ -602,7 +606,7 @@ export function Home() {
         </CardContent>
       </Card>
       <Dialog open={changelogDialogOpen} onOpenChange={setChangelogDialogOpen}>
-        <DialogContent className="max-w-5xl w-full">
+        <DialogContent className="min-w-[80vw]">
           <DialogHeader>
             <DialogTitle className="flex w-full justify-between items-center">
               <Label className="text-xl">{selectedProject?.name}</Label>
@@ -610,7 +614,7 @@ export function Home() {
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger>
                     <Button
-                      className="text-xl text-destructive hover:text-destructive"
+                      className="text-xl text-destructive hover:text-destructive-foreground hover:bg-destructive"
                       variant="ghost"
                       onClick={() => {
                         window.electron.ipcRenderer.invoke(
@@ -636,7 +640,7 @@ export function Home() {
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger>
                     <Button
-                      className="text-xl text-primary hover:text-primary"
+                      className="text-xl text-primary "
                       variant="ghost"
                       onClick={() => {
                         window.electron.ipcRenderer.invoke(
@@ -655,7 +659,7 @@ export function Home() {
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger>
                     <Button
-                      className="text-xl text-primary hover:text-primary"
+                      className="text-xl text-primary "
                       variant="ghost"
                       onClick={() => {
                         window.electron.ipcRenderer.invoke(
@@ -687,7 +691,7 @@ export function Home() {
                       {...props}
                       href={href}
                       onClick={(e) => handleLinkClick(e)}
-                      style={{ color: 'blue', textDecoration: 'underline' }}
+                      style={{ color: color }}
                     >
                       {children}
                     </a>

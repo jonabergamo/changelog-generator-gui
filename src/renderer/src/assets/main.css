@@ -899,6 +899,6 @@ html {
 }
 
 .markdown-content a {
-  color: #007bff;
+  color: var(--primary);
   text-decoration: underline;
 }

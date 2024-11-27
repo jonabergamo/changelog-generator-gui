@@ -79,6 +79,7 @@ function createWindow(): void {
     mainWindow.show();
   });
 
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     const url = new URL(details.url);
 
